@@ -9,8 +9,10 @@ import (
 	"devcode_challenge/service/activity_service"
 	"devcode_challenge/service/todo_service"
 	"sync"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/patrickmn/go-cache"
 )
 
 func Router(fiber *fiber.App, db *sql.DB) {
@@ -24,7 +26,8 @@ func activityRoute(fiber *fiber.App, db *sql.DB) {
 
 	doOnce.Do(func() {
 		repo := activity_repository.NewActivityRepository(db)
-		service := activity_service.NewActivityService(repo)
+		cache := cache.New(2*time.Minute, 10*time.Minute)
+		service := activity_service.NewActivityService(repo, cache)
 		controller = activity_controller.NewActivityController(service)
 	})
 
@@ -41,7 +44,8 @@ func todoRoute(fiber *fiber.App, db *sql.DB) {
 
 	doOnce.Do(func() {
 		repo := todo_repository.NewTodoRepository(db)
-		service := todo_service.NewTodoService(repo)
+		cache := cache.New(2*time.Minute, 10*time.Minute)
+		service := todo_service.NewTodoService(repo, cache)
 		controller = todo_controller.NewTodoController(service)
 	})
 

@@ -6,22 +6,27 @@ import (
 	"devcode_challenge/model/response"
 	"devcode_challenge/repository/todo_repository"
 	"errors"
+	"log"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/patrickmn/go-cache"
 )
 
 type TodoServiceImpl struct {
-	Repo todo_repository.TodoRepository
+	Repo  todo_repository.TodoRepository
+	Cache *cache.Cache
 }
 
-func NewTodoService(repo todo_repository.TodoRepository) TodoService {
+func NewTodoService(repo todo_repository.TodoRepository, cache *cache.Cache) TodoService {
 	var doOnce sync.Once
 	service := new(TodoServiceImpl)
 
 	doOnce.Do(func() {
 		service = &TodoServiceImpl{
-			Repo: repo,
+			Repo:  repo,
+			Cache: cache,
 		}
 	})
 
@@ -29,6 +34,10 @@ func NewTodoService(repo todo_repository.TodoRepository) TodoService {
 }
 
 func (service *TodoServiceImpl) GetAll(activityGroupId *string) ([]*response.TodoResponse, error) {
+	if data, found := service.Cache.Get("all"); found {
+		return data.([]*response.TodoResponse), nil
+	}
+
 	domainRes, err := service.Repo.GetAll(activityGroupId)
 	result := make([]*response.TodoResponse, 0)
 	if err != nil {
@@ -50,10 +59,30 @@ func (service *TodoServiceImpl) GetAll(activityGroupId *string) ([]*response.Tod
 		result = append(result, todo)
 	}
 
+	go service.Cache.Set("all", result, cache.DefaultExpiration)
 	return result, nil
 }
 
 func (service *TodoServiceImpl) DetailTodo(todoId int) (*response.TodoResponse, error) {
+	if data, found := service.Cache.Get("all"); found {
+		list := data.([]*response.TodoResponse)
+		for _, value := range list {
+			if value.Id == int64(todoId) {
+				log.Println("cached")
+				return &response.TodoResponse{
+					Id:              value.Id,
+					Title:           value.Title,
+					IsActive:        value.IsActive,
+					Priority:        value.Priority,
+					CreatedAt:       value.CreatedAt,
+					UpdatedAt:       value.UpdatedAt,
+					DeletedAt:       value.DeletedAt,
+					ActivityGroupId: value.ActivityGroupId,
+				}, nil
+			}
+		}
+	}
+
 	domainRes, err := service.Repo.DetailTodo(todoId)
 	if err != nil {
 		return nil, err

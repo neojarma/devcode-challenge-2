@@ -6,6 +6,7 @@ import (
 	"devcode_challenge/router"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cache"
 )
 
 func main() {
@@ -19,9 +20,10 @@ func main() {
 		panic(err)
 	}
 
-	fiber := fiber.New()
+	app := fiber.New()
+	app.Use(cache.New())
 
-	router.Router(fiber, connection)
+	router.Router(app, connection)
 
-	fiber.Listen(":3030")
+	app.Listen(":3030")
 }
